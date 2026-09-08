@@ -1,0 +1,2 @@
+Sample upload file for Test Case 6 (Contact Us form).
+Used only to exercise the file-upload input; content is not asserted.
