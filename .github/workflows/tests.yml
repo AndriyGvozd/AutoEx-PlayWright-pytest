@@ -53,6 +53,8 @@ jobs:
     needs: test
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # required to push the generated report to the gh-pages branch
     steps:
       - name: Checkout
         uses: actions/checkout@v4
