@@ -38,7 +38,11 @@ jobs:
 
       - name: Run tests
         run: pytest --browser ${{ matrix.browser }} -v
-        continue-on-error: true
+        # No continue-on-error here: a real failure must turn this job red.
+        # The report job below still runs regardless (if: always()), so a
+        # failed browser doesn't block the Allure report from being
+        # generated and deployed -- it just also gets reported as failed,
+        # instead of silently passing.
 
       - name: Upload Allure results (${{ matrix.browser }})
         if: always()
