@@ -3,3 +3,4 @@ pytest-playwright==0.7.1
 playwright==1.60.0
 allure-pytest==2.16.0
 pytest-xdist==3.8.0
+pytest-rerunfailures==16.0.1
