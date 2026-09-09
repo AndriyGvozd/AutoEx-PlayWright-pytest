@@ -122,3 +122,5 @@ npm install -g allure-commandline
 allure generate allure-results --clean -o allure-report
 allure open allure-report
 ```
+
+for test push
