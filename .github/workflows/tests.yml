@@ -19,9 +19,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # webkit is intentionally excluded -- markedly less stable than
-        # chromium/firefox against this live site under CI load (frequent
-        # timeouts and anti-bot challenge hits).
         browser: [chromium, firefox]
     steps:
       - name: Checkout
