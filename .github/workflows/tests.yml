@@ -102,3 +102,62 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: allure-report
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAGES_URL: https://andriygvozd.github.io/AutoEx-PlayWright-pytest/
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BRANCH: ${{ github.ref_name }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL secret is not set -- skipping Slack notification."
+            exit 0
+          fi
+
+          PASSED=$(jq -r '.statistic.passed' allure-report/widgets/summary.json)
+          FAILED=$(jq -r '.statistic.failed' allure-report/widgets/summary.json)
+          BROKEN=$(jq -r '.statistic.broken' allure-report/widgets/summary.json)
+          TOTAL=$(jq -r '.statistic.total' allure-report/widgets/summary.json)
+
+          if [ "$FAILED" -eq 0 ] && [ "$BROKEN" -eq 0 ]; then
+            EMOJI=":white_check_mark:"
+            STATUS_TEXT="All tests passed"
+          else
+            EMOJI=":x:"
+            STATUS_TEXT="Some tests failed"
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg emoji "$EMOJI" \
+            --arg status_text "$STATUS_TEXT" \
+            --arg passed "$PASSED" \
+            --arg failed "$FAILED" \
+            --arg broken "$BROKEN" \
+            --arg total "$TOTAL" \
+            --arg branch "$BRANCH" \
+            --arg commit_msg "${COMMIT_MSG%%$'\n'*}" \
+            --arg run_url "$RUN_URL" \
+            --arg pages_url "$PAGES_URL" \
+            '{
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "\($emoji) *\($status_text)* — \($passed)/\($total) passed (\($failed) failed, \($broken) broken)\n*Branch:* `\($branch)`\n*Commit:* \($commit_msg)"
+                  }
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    { type: "button", text: { type: "plain_text", text: "View Allure Report" }, url: $pages_url, style: "primary" },
+                    { type: "button", text: { type: "plain_text", text: "View CI Run" }, url: $run_url }
+                  ]
+                }
+              ]
+            }')
+
+          curl -sf -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK_URL"
