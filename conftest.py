@@ -7,6 +7,27 @@ from pages.home_page import HomePage
 from utils.test_data import unique_user_data
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Refuses to run webkit tests under pytest-xdist parallelism.
+
+    WebKit is markedly less stable than chromium/firefox under concurrent
+    load on this project's CI runners (more timeouts/crashes when several
+    instances launch at once), so it must run one test at a time. By the
+    time xdist has read `-n` and started spawning workers it's too late to
+    downgrade that safely, so this fails fast with a clear message instead
+    of silently overriding (or worse, ignoring) the requested parallelism.
+    """
+    browsers = config.getoption("--browser") or ["chromium"]
+    numprocesses = getattr(config.option, "numprocesses", None)
+    if "webkit" in browsers and numprocesses not in (None, 0, "0"):
+        raise pytest.UsageError(
+            "webkit is markedly less stable under pytest-xdist parallelism (-n) on this "
+            "project's CI runners. Run webkit without -n, e.g.:\n"
+            "  pytest --browser webkit\n"
+            "Other browsers (chromium/firefox) can still use -n freely."
+        )
+
+
 _AD_DOMAINS = (
     "googlesyndication.com",
     "doubleclick.net",
