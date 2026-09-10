@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
+from pages import registry
 from pages.base_page import BasePage
 
 if TYPE_CHECKING:
@@ -26,13 +27,13 @@ class PaymentPage(BasePage):
     Playwright could assert on it the page has usually already navigated, so
     it isn't a reliable signal. The confirmation page itself instead shows a
     'Order Placed!' heading (`[data-qa='order-placed']`) with the text
-    "Congratulations! Your order has been confirmed!" — that's what
-    `verify_order_placed_success` checks, as the reliable equivalent of the
-    official test text's success message.
+    "Congratulations! Your order has been confirmed!" — that's the reliable
+    equivalent of the official test text's success message (see
+    `utils/verifications.py::assert_order_placed_success`).
     """
 
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, page: Page, base_url: str):
+        super().__init__(page, base_url)
         self.name_on_card_input = page.locator("[data-qa='name-on-card']")
         self.card_number_input = page.locator("[data-qa='card-number']")
         self.cvc_input = page.locator("[data-qa='cvc']")
@@ -59,11 +60,6 @@ class PaymentPage(BasePage):
         self.expiry_year_input.fill(expiry_year)
         self.pay_button.click()
 
-    def verify_order_placed_success(self):
-        expect(self.order_placed_heading).to_be_visible(timeout=15000)
-        expect(self.order_placed_heading).to_contain_text("Order Placed!")
-        expect(self.order_placed_message).to_contain_text("Congratulations! Your order has been confirmed!")
-
     def download_invoice(self, destination: Path) -> Path:
         """Clicks 'Download Invoice' and saves the resulting download to
         `destination`, returning it. Caller should assert the file exists
@@ -77,14 +73,8 @@ class PaymentPage(BasePage):
 
     def click_continue(self) -> "HomePage":
         self.continue_button.click()
-
-        from pages.home_page import HomePage
-
-        return HomePage(self.page)
+        return registry.home_page(self.page, self.base_url)
 
     def click_delete_account(self) -> "AccountDeletedPage":
         self.delete_account_link.click()
-
-        from pages.account_deleted_page import AccountDeletedPage
-
-        return AccountDeletedPage(self.page)
+        return registry.account_deleted_page(self.page, self.base_url)

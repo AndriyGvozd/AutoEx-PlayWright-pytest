@@ -10,12 +10,13 @@ A cross-browser UI test automation project for [automationexercise.com](https://
 |---|---|
 | [Playwright](https://playwright.dev/) | Browser automation (sync API) |
 | [pytest](https://docs.pytest.org/) | Test runner |
-| [pytest-playwright](https://github.com/microsoft/playwright-pytest) | Playwright ↔ pytest integration (browser/page fixtures, `--browser` CLI flag) |
+| [pytest-playwright](https://github.com/microsoft/playwright-pytest) | Playwright ↔ pytest integration (browser/page/`base_url` fixtures, `--browser`/`--base-url` CLI flags) |
 | [Allure](https://allurereport.org/) (`allure-pytest`) | Test reporting — per-step descriptions, screenshots, history/trend |
 | [pytest-xdist](https://github.com/pytest-dev/pytest-xdist) | Parallel test execution (`-n`) |
 | [pytest-rerunfailures](https://github.com/pytest-dev/pytest-rerunfailures) | Automatic reruns for flaky/transient failures |
 | GitHub Actions | CI pipeline |
 | GitHub Pages | Hosting the published Allure report |
+| Slack (Incoming Webhook) | CI run notifications |
 
 Only stable (non-pre-release) versions of every dependency are used — see [requirements.txt](requirements.txt).
 
@@ -24,10 +25,11 @@ Only stable (non-pre-release) versions of every dependency are used — see [req
 ```
 .
 ├── conftest.py                  # Shared fixtures: home_page, registered_user (+ its teardown)
-├── pytest.ini                   # pytest config: addopts, reruns, Allure results dir
+├── pytest.ini                   # pytest config: addopts, base URL default, reruns, Allure results dir
 ├── requirements.txt              # Pinned dependency versions
-├── pages/                        # Page Object Model — one class per page
-│   ├── base_page.py               # Common base (holds the Playwright Page, .goto())
+├── pages/                        # Page Object Model — locators & interactions ONLY, no assertions
+│   ├── base_page.py               # Common base (Playwright Page + base_url, .goto())
+│   ├── registry.py                 # Central factory module resolving sibling Page Objects lazily
 │   ├── home_page.py                # Header nav, footer subscription, scroll-to-top, recommended items
 │   ├── signup_login_page.py        # Signup / Login forms
 │   ├── signup_page.py              # "Enter Account Information" registration form
@@ -49,22 +51,39 @@ Only stable (non-pre-release) versions of every dependency are used — see [req
 │   └── fixtures/sample_upload.txt  # Sample file used by the Contact Us upload step
 ├── utils/
 │   ├── test_data.py                # unique_user_data() — generates unique, parallel-safe test users
+│   ├── verifications.py            # assert_*() functions — ALL test assertions live here, not in pages/
 │   └── allure_steps.py             # step() context manager: Allure step + screenshot per action
 └── .github/workflows/tests.yml    # CI pipeline (see below)
 ```
 
 ## How it's implemented
 
-### Page Object Model
+### Page Object Model — interaction only, no assertions
 
-Every page of the site is its own class extending `BasePage`. Locators are declared in `__init__` (preferring the site's `data-qa`/`id` attributes over brittle CSS where available), and methods that trigger navigation return the next page's object (page-chaining), e.g.:
+Every page of the site is its own class extending `BasePage`. Locators are declared in `__init__` (preferring the site's `data-qa`/`id` attributes over brittle CSS where available) as public attributes, and methods that trigger navigation return the next page's object (page-chaining), e.g.:
 
 ```python
 signup_login_page = home_page.click_signup_login()
 signup_page = signup_login_page.signup(name, email)
 ```
 
+Page Objects deliberately expose locators and data (`cart_page.product_row(name)`, `products_page.get_product_name(index)`) but never call `expect()` to assert pass/fail outcomes — that would couple a reusable interaction to one fixed check. All test assertions live in **`utils/verifications.py`** instead, as small `assert_*(page_object, ...)` functions that tests call explicitly, e.g. `verifications.assert_logged_in_as(home_page, user["name"])`. This keeps "how to interact with the page" (pages/) and "what counts as correct" (utils/verifications.py, called from tests/) as two independent, separately reusable layers.
+
+Where a Page Object method still waits on something internally — an animated Bootstrap modal fading in, an accordion panel opening, a flaky AJAX response that occasionally needs a retry — it uses Playwright's non-assertion primitives (`Locator.wait_for()`, `Page.wait_for_url()`) rather than `expect()`, since that's UI-settling synchronization the action needs to complete reliably, not a check about test correctness.
+
 Reusable multi-step actions are collapsed into a single composite method (`SignupPage.complete_registration()`, `PaymentPage.pay()`) rather than repeated inline in every test, and shared setup (`registered_user` fixture in `conftest.py`) creates a real account once and tears it down (deletes it) whether the test itself already did or not.
+
+### Breaking the Page Object import cycle with a factory module
+
+Navigation on this site goes in both directions between almost every pair of pages (Home ↔ Signup/Login ↔ Signup ↔ Account Created ↔ Home, etc.), so each page needing to construct and return the *next* page's object would otherwise require every module to import every other module directly — an unavoidable circular-import cycle. Rather than resolving that with a local `from pages.x import X` import scattered inside every single navigation method, that lazy resolution is centralized in one place: **`pages/registry.py`**. It exposes one small factory function per page (`registry.home_page(page, base_url)`, `registry.cart_page(page, base_url)`, ...), and is the only module in `pages/` that imports concrete page classes inside function bodies — every other page module imports `registry` itself normally, at the top of the file, since `registry.py` never imports any of them back at its own module level.
+
+### Configurable base URL
+
+`pages/base_page.py` holds no hardcoded URL — `base_url` is passed into every Page Object's constructor and threaded through page-chaining, sourced from `pytest-playwright`'s built-in `base_url` fixture. `pytest.ini` sets `--base-url https://automationexercise.com` as the default so a bare `pytest` still targets the live site unchanged, while any run can point the whole suite at a different environment without touching source:
+
+```bash
+pytest --base-url https://staging.example.com
+```
 
 ### Allure reporting with parametrized steps
 
@@ -100,8 +119,9 @@ Several Page Object methods also contain their own defensive waits/retries for k
 
 1. **`test`** — a matrix job runs the full suite once per browser (chromium, firefox) in parallel, each on its own runner, and uploads its Allure results as a build artifact.
 2. **`report`** — downloads and merges both browsers' results, carries over the previous report's history (so the Allure **Trend** chart is continuous across runs), generates the HTML report with the Allure CLI, and publishes it to the `gh-pages` branch.
+3. **Slack notification** — posts a summary (pass/fail/broken counts, branch, commit) with buttons linking to the Allure report and the CI run, to a Slack channel via an Incoming Webhook (`SLACK_WEBHOOK_URL` repo secret). Runs unconditionally, so both green and red runs notify; skips gracefully if the secret isn't configured.
 
-GitHub Pages serves that branch, so the [live report](https://andriygvozd.github.io/AutoEx-PlayWright-pytest/) always reflects the latest run on `main`.
+GitHub Pages serves the `gh-pages` branch, so the [live report](https://andriygvozd.github.io/AutoEx-PlayWright-pytest/) always reflects the latest run on `main`.
 
 ## Running locally
 
@@ -122,5 +142,3 @@ npm install -g allure-commandline
 allure generate allure-results --clean -o allure-report
 allure open allure-report
 ```
-
-for test push

@@ -1,9 +1,10 @@
 import re
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from pages.home_page import HomePage
+from utils import verifications
 from utils.test_data import unique_user_data
 
 
@@ -17,7 +18,7 @@ _AD_DOMAINS = (
 
 
 @pytest.fixture
-def home_page(page: Page) -> HomePage:
+def home_page(page: Page, base_url: str) -> HomePage:
     # Block ad iframes/vignettes: the live site serves interstitial Google ads
     # that can overlay nav/sidebar links and intercept clicks mid-test.
     page.route(
@@ -25,7 +26,7 @@ def home_page(page: Page) -> HomePage:
         lambda route: route.abort(),
     )
 
-    home = HomePage(page)
+    home = HomePage(page, base_url)
     home.goto()
     return home
 
@@ -60,7 +61,7 @@ def _delete_account_if_exists(home_page: HomePage, user: dict) -> None:
     home_page_after_login = signup_login_page.login(user["email"], user["password"])
 
     try:
-        expect(home_page_after_login.logged_in_as_text).to_be_visible(timeout=5000)
+        verifications.assert_logged_in_as(home_page_after_login, user["name"])
     except AssertionError:
         return  # login failed -> account no longer exists, nothing to clean up
 

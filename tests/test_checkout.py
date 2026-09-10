@@ -10,6 +10,7 @@ from pathlib import Path
 import allure
 
 from pages.home_page import HomePage
+from utils import verifications
 from utils.allure_steps import step
 from utils.test_data import unique_user_data
 
@@ -28,7 +29,7 @@ def _add_first_product_to_cart(home_page: HomePage):
     page = home_page.page
     with step(page, "4. Add products to cart"):
         products_page = home_page.click_products()
-        products_page.verify_all_products_page_visible()
+        verifications.assert_all_products_page_visible(products_page)
         products_page.add_product_to_cart_by_index(0)
         products_page.click_continue_shopping()
 
@@ -40,20 +41,20 @@ def test_place_order_register_while_checkout(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     _add_first_product_to_cart(home_page)
 
     with step(page, "5-6. Click 'Cart' button, verify that cart page is displayed"):
         cart_page = home_page.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "7. Click Proceed To Checkout -> not logged in, shows Register/Login modal"):
         cart_page.click_proceed_to_checkout()
 
     with step(page, "8. Click 'Register / Login' button"):
         signup_login_page = cart_page.click_register_login_from_checkout_modal()
-        signup_login_page.verify_new_user_signup_visible()
+        verifications.assert_new_user_signup_visible(signup_login_page)
 
     user = unique_user_data()
     with step(page, f"9. Fill all details in Signup (name='{user['name']}', email='{user['email']}') and create account"):
@@ -61,11 +62,11 @@ def test_place_order_register_while_checkout(home_page: HomePage):
         account_created_page = signup_page.complete_registration(user)
 
     with step(page, "10. Verify 'ACCOUNT CREATED!' and click 'Continue' button"):
-        account_created_page.verify_account_created()
+        verifications.assert_account_created(account_created_page)
         home_page_after_signup = account_created_page.click_continue()
 
     with step(page, f"11. Verify 'Logged in as {user['name']}' at top"):
-        home_page_after_signup.verify_logged_in_as(user["name"])
+        verifications.assert_logged_in_as(home_page_after_signup, user["name"])
 
     with step(page, "12. Click 'Cart' button"):
         cart_page = home_page_after_signup.click_cart()
@@ -74,7 +75,7 @@ def test_place_order_register_while_checkout(home_page: HomePage):
         checkout_page = cart_page.click_proceed_to_checkout()
 
     with step(page, "14. Verify Address Details and Review Your Order"):
-        checkout_page.verify_checkout_page_visible()
+        verifications.assert_checkout_page_visible(checkout_page)
 
     with step(page, f"15. Enter description '{_COMMENT}' in comment text area and click 'Place Order'"):
         checkout_page.enter_comment(_COMMENT)
@@ -84,13 +85,13 @@ def test_place_order_register_while_checkout(home_page: HomePage):
         payment_page.pay(**_CARD)
 
     with step(page, "18. Verify success message"):
-        payment_page.verify_order_placed_success()
+        verifications.assert_order_placed_success(payment_page)
 
     with step(page, "19. Click 'Delete Account' button"):
         account_deleted_page = payment_page.click_delete_account()
 
     with step(page, "20. Verify 'ACCOUNT DELETED!' and click 'Continue' button"):
-        account_deleted_page.verify_account_deleted()
+        verifications.assert_account_deleted(account_deleted_page)
         account_deleted_page.click_continue()
 
 
@@ -101,11 +102,11 @@ def test_place_order_register_before_checkout(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'Signup / Login' button"):
         signup_login_page = home_page.click_signup_login()
-        signup_login_page.verify_new_user_signup_visible()
+        verifications.assert_new_user_signup_visible(signup_login_page)
 
     user = unique_user_data()
     with step(page, f"5. Fill all details in Signup (name='{user['name']}', email='{user['email']}') and create account"):
@@ -113,23 +114,23 @@ def test_place_order_register_before_checkout(home_page: HomePage):
         account_created_page = signup_page.complete_registration(user)
 
     with step(page, "6. Verify 'ACCOUNT CREATED!' and click 'Continue' button"):
-        account_created_page.verify_account_created()
+        verifications.assert_account_created(account_created_page)
         home_page_after_signup = account_created_page.click_continue()
 
     with step(page, f"7. Verify 'Logged in as {user['name']}' at top"):
-        home_page_after_signup.verify_logged_in_as(user["name"])
+        verifications.assert_logged_in_as(home_page_after_signup, user["name"])
 
     _add_first_product_to_cart(home_page_after_signup)
 
     with step(page, "9-10. Click 'Cart' button, verify that cart page is displayed"):
         cart_page = home_page_after_signup.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "11. Click Proceed To Checkout"):
         checkout_page = cart_page.click_proceed_to_checkout()
 
     with step(page, "12. Verify Address Details and Review Your Order"):
-        checkout_page.verify_checkout_page_visible()
+        verifications.assert_checkout_page_visible(checkout_page)
 
     with step(page, f"13. Enter description '{_COMMENT}' in comment text area and click 'Place Order'"):
         checkout_page.enter_comment(_COMMENT)
@@ -139,13 +140,13 @@ def test_place_order_register_before_checkout(home_page: HomePage):
         payment_page.pay(**_CARD)
 
     with step(page, "16. Verify success message"):
-        payment_page.verify_order_placed_success()
+        verifications.assert_order_placed_success(payment_page)
 
     with step(page, "17. Click 'Delete Account' button"):
         account_deleted_page = payment_page.click_delete_account()
 
     with step(page, "18. Verify 'ACCOUNT DELETED!' and click 'Continue' button"):
-        account_deleted_page.verify_account_deleted()
+        verifications.assert_account_deleted(account_deleted_page)
         account_deleted_page.click_continue()
 
 
@@ -156,7 +157,7 @@ def test_place_order_login_before_checkout(home_page: HomePage, registered_user:
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'Signup / Login' button"):
         signup_login_page = home_page.click_signup_login()
@@ -165,19 +166,19 @@ def test_place_order_login_before_checkout(home_page: HomePage, registered_user:
         home_page_after_login = signup_login_page.login(registered_user["email"], registered_user["password"])
 
     with step(page, f"6. Verify 'Logged in as {registered_user['name']}' at top"):
-        home_page_after_login.verify_logged_in_as(registered_user["name"])
+        verifications.assert_logged_in_as(home_page_after_login, registered_user["name"])
 
     _add_first_product_to_cart(home_page_after_login)
 
     with step(page, "8-9. Click 'Cart' button, verify that cart page is displayed"):
         cart_page = home_page_after_login.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "10. Click Proceed To Checkout"):
         checkout_page = cart_page.click_proceed_to_checkout()
 
     with step(page, "11. Verify Address Details and Review Your Order"):
-        checkout_page.verify_checkout_page_visible()
+        verifications.assert_checkout_page_visible(checkout_page)
 
     with step(page, f"12. Enter description '{_COMMENT}' in comment text area and click 'Place Order'"):
         checkout_page.enter_comment(_COMMENT)
@@ -187,13 +188,13 @@ def test_place_order_login_before_checkout(home_page: HomePage, registered_user:
         payment_page.pay(**_CARD)
 
     with step(page, "15. Verify success message"):
-        payment_page.verify_order_placed_success()
+        verifications.assert_order_placed_success(payment_page)
 
     with step(page, "16. Click 'Delete Account' button"):
         account_deleted_page = payment_page.click_delete_account()
 
     with step(page, "17. Verify 'ACCOUNT DELETED!' and click 'Continue' button"):
-        account_deleted_page.verify_account_deleted()
+        verifications.assert_account_deleted(account_deleted_page)
         account_deleted_page.click_continue()
 
 
@@ -204,11 +205,11 @@ def test_verify_address_details_in_checkout_page(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'Signup / Login' button"):
         signup_login_page = home_page.click_signup_login()
-        signup_login_page.verify_new_user_signup_visible()
+        verifications.assert_new_user_signup_visible(signup_login_page)
 
     user = unique_user_data()
     with step(page, f"5. Fill all details in Signup (name='{user['name']}', email='{user['email']}') and create account"):
@@ -216,28 +217,28 @@ def test_verify_address_details_in_checkout_page(home_page: HomePage):
         account_created_page = signup_page.complete_registration(user)
 
     with step(page, "6. Verify 'ACCOUNT CREATED!' and click 'Continue' button"):
-        account_created_page.verify_account_created()
+        verifications.assert_account_created(account_created_page)
         home_page_after_signup = account_created_page.click_continue()
 
     with step(page, f"7. Verify 'Logged in as {user['name']}' at top"):
-        home_page_after_signup.verify_logged_in_as(user["name"])
+        verifications.assert_logged_in_as(home_page_after_signup, user["name"])
 
     _add_first_product_to_cart(home_page_after_signup)
 
     with step(page, "9-10. Click 'Cart' button, verify that cart page is displayed"):
         cart_page = home_page_after_signup.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "11. Click Proceed To Checkout"):
         checkout_page = cart_page.click_proceed_to_checkout()
-        checkout_page.verify_checkout_page_visible()
+        verifications.assert_checkout_page_visible(checkout_page)
 
     with step(
         page,
         f"12-13. Verify that the delivery address and billing address match address filled at "
         f"registration (name='{user['first_name']} {user['last_name']}', address='{user['address1']}')",
     ):
-        checkout_page.verify_address_matches_user(user)
+        verifications.assert_address_matches_user(checkout_page, user)
 
     # 14. Click 'Delete Account' button
     # (the header nav, including 'Delete Account', is shared across pages, so
@@ -246,7 +247,7 @@ def test_verify_address_details_in_checkout_page(home_page: HomePage):
         account_deleted_page = home_page.click_delete_account()
 
     with step(page, "15. Verify 'ACCOUNT DELETED!' and click 'Continue' button"):
-        account_deleted_page.verify_account_deleted()
+        verifications.assert_account_deleted(account_deleted_page)
         account_deleted_page.click_continue()
 
 
@@ -257,13 +258,13 @@ def test_download_invoice_after_purchase_order(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     _add_first_product_to_cart(home_page)
 
     with step(page, "5-6. Click 'Cart' button, verify that cart page is displayed"):
         cart_page = home_page.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "7. Click Proceed To Checkout -> not logged in, shows Register/Login modal"):
         cart_page.click_proceed_to_checkout()
@@ -277,11 +278,11 @@ def test_download_invoice_after_purchase_order(home_page: HomePage):
         account_created_page = signup_page.complete_registration(user)
 
     with step(page, "10. Verify 'ACCOUNT CREATED!' and click 'Continue' button"):
-        account_created_page.verify_account_created()
+        verifications.assert_account_created(account_created_page)
         home_page_after_signup = account_created_page.click_continue()
 
     with step(page, f"11. Verify 'Logged in as {user['name']}' at top"):
-        home_page_after_signup.verify_logged_in_as(user["name"])
+        verifications.assert_logged_in_as(home_page_after_signup, user["name"])
 
     with step(page, "12. Click 'Cart' button"):
         cart_page = home_page_after_signup.click_cart()
@@ -290,7 +291,7 @@ def test_download_invoice_after_purchase_order(home_page: HomePage):
         checkout_page = cart_page.click_proceed_to_checkout()
 
     with step(page, "14. Verify Address Details and Review Your Order"):
-        checkout_page.verify_checkout_page_visible()
+        verifications.assert_checkout_page_visible(checkout_page)
 
     with step(page, f"15. Enter description '{_COMMENT}' in comment text area and click 'Place Order'"):
         checkout_page.enter_comment(_COMMENT)
@@ -300,7 +301,7 @@ def test_download_invoice_after_purchase_order(home_page: HomePage):
         payment_page.pay(**_CARD)
 
     with step(page, "18. Verify success message"):
-        payment_page.verify_order_placed_success()
+        verifications.assert_order_placed_success(payment_page)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         destination = Path(tmp_dir) / "invoice.txt"
@@ -316,5 +317,5 @@ def test_download_invoice_after_purchase_order(home_page: HomePage):
         account_deleted_page = home_page_after_order.click_delete_account()
 
     with step(page, "22. Verify 'ACCOUNT DELETED!' and click 'Continue' button"):
-        account_deleted_page.verify_account_deleted()
+        verifications.assert_account_deleted(account_deleted_page)
         account_deleted_page.click_continue()

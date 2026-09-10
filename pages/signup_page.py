@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
+from pages import registry
 from pages.base_page import BasePage
 
 if TYPE_CHECKING:
@@ -11,8 +12,8 @@ if TYPE_CHECKING:
 
 
 class SignupPage(BasePage):
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, page: Page, base_url: str):
+        super().__init__(page, base_url)
         self.account_info_heading = page.locator("h2", has_text="Enter Account Information")
 
         self.title_mr_radio = page.locator("#id_gender1")
@@ -37,9 +38,6 @@ class SignupPage(BasePage):
         self.mobile_number_input = page.locator("#mobile_number")
 
         self.create_account_button = page.locator("[data-qa='create-account']")
-
-    def verify_account_info_visible(self):
-        expect(self.account_info_heading).to_be_visible()
 
     def fill_account_info(self, title: str, password: str, day: str, month: str, year: str):
         if title.lower() == "mr":
@@ -83,10 +81,7 @@ class SignupPage(BasePage):
 
     def click_create_account(self) -> "AccountCreatedPage":
         self.create_account_button.click()
-
-        from pages.account_created_page import AccountCreatedPage
-
-        return AccountCreatedPage(self.page)
+        return registry.account_created_page(self.page, self.base_url)
 
     def complete_registration(self, user: dict) -> "AccountCreatedPage":
         """Fills the whole 'Enter Account Information' form from a user data dict

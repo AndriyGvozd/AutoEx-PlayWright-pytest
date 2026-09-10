@@ -7,6 +7,7 @@ https://www.automationexercise.com/test_cases (Test Case 11, 12, 13, 17, 20, 22)
 import allure
 
 from pages.home_page import HomePage
+from utils import verifications
 from utils.allure_steps import step
 
 
@@ -18,23 +19,23 @@ def test_verify_subscription_in_cart_page(home_page: HomePage):
     email = "qa_subscribe_check@example.com"
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'Cart' button"):
         cart_page = home_page.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, "5. Scroll down to footer"):
         cart_page.scroll_to_subscription()
 
     with step(page, "6. Verify text 'SUBSCRIPTION'"):
-        cart_page.verify_subscription_heading_visible()
+        verifications.assert_subscription_heading_visible(cart_page)
 
     with step(page, f"7. Enter email address '{email}' in input and click arrow button"):
         cart_page.subscribe(email)
 
     with step(page, "8. Verify success message 'You have been successfully subscribed!' is visible"):
-        cart_page.verify_subscription_success()
+        verifications.assert_subscription_success(cart_page)
 
 
 @allure.feature("Cart")
@@ -44,16 +45,16 @@ def test_add_products_in_cart(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'Products' button"):
         products_page = home_page.click_products()
-        products_page.verify_all_products_page_visible()
+        verifications.assert_all_products_page_visible(products_page)
 
-    first_name = products_page.products_list.nth(0).locator(".productinfo p").inner_text()
-    first_price = products_page.products_list.nth(0).locator(".productinfo h2").inner_text()
-    second_name = products_page.products_list.nth(1).locator(".productinfo p").inner_text()
-    second_price = products_page.products_list.nth(1).locator(".productinfo h2").inner_text()
+    first_name = products_page.get_product_name(0)
+    first_price = products_page.get_product_price(0)
+    second_name = products_page.get_product_name(1)
+    second_price = products_page.get_product_price(1)
 
     with step(page, f"5. Hover over first product '{first_name}' and click 'Add to cart'"):
         products_page.add_product_to_cart_by_index(0)
@@ -66,17 +67,17 @@ def test_add_products_in_cart(home_page: HomePage):
 
     with step(page, "8. Click 'View Cart' button"):
         cart_page = products_page.click_view_cart_from_modal()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, f"9. Verify both products '{first_name}' and '{second_name}' are added to Cart"):
-        cart_page.verify_product_in_cart(first_name)
-        cart_page.verify_product_in_cart(second_name)
+        verifications.assert_product_in_cart(cart_page, first_name)
+        verifications.assert_product_in_cart(cart_page, second_name)
 
     with step(page, "10. Verify their prices, quantity and total price"):
         assert cart_page.get_product_price(first_name) == first_price
         assert cart_page.get_product_price(second_name) == second_price
-        cart_page.verify_product_quantity(first_name, "1")
-        cart_page.verify_product_quantity(second_name, "1")
+        verifications.assert_product_quantity_in_cart(cart_page, first_name, "1")
+        verifications.assert_product_quantity_in_cart(cart_page, second_name, "1")
         assert cart_page.get_product_total(first_name) == first_price
         assert cart_page.get_product_total(second_name) == second_price
 
@@ -89,14 +90,14 @@ def test_verify_product_quantity_in_cart(home_page: HomePage):
     quantity = 4
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Click 'View Product' for any product"):
         products_page = home_page.click_products()
         product_detail_page = products_page.click_view_product(0)
 
     with step(page, "5. Verify product detail is opened"):
-        product_detail_page.verify_product_detail_visible()
+        verifications.assert_product_detail_visible(product_detail_page)
         product_name = product_detail_page.product_name.inner_text()
 
     with step(page, f"6. Increase quantity to {quantity}"):
@@ -107,11 +108,11 @@ def test_verify_product_quantity_in_cart(home_page: HomePage):
 
     with step(page, "8. Click 'View Cart' button"):
         cart_page = product_detail_page.click_view_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, f"9. Verify that product '{product_name}' is displayed in cart page with exact quantity {quantity}"):
-        cart_page.verify_product_in_cart(product_name)
-        cart_page.verify_product_quantity(product_name, str(quantity))
+        verifications.assert_product_in_cart(cart_page, product_name)
+        verifications.assert_product_quantity_in_cart(cart_page, product_name, str(quantity))
 
 
 @allure.feature("Cart")
@@ -121,14 +122,14 @@ def test_remove_products_from_cart(home_page: HomePage):
     page = home_page.page
 
     with step(page, "3. Verify that home page is visible successfully"):
-        home_page.verify_home_page_visible()
+        verifications.assert_home_page_visible(home_page)
 
     with step(page, "4. Add products to cart"):
         products_page = home_page.click_products()
-        products_page.verify_all_products_page_visible()
+        verifications.assert_all_products_page_visible(products_page)
 
-        first_name = products_page.products_list.nth(0).locator(".productinfo p").inner_text()
-        second_name = products_page.products_list.nth(1).locator(".productinfo p").inner_text()
+        first_name = products_page.get_product_name(0)
+        second_name = products_page.get_product_name(1)
 
         products_page.add_product_to_cart_by_index(0)
         products_page.click_continue_shopping()
@@ -138,16 +139,16 @@ def test_remove_products_from_cart(home_page: HomePage):
         cart_page = products_page.click_view_cart_from_modal()
 
     with step(page, "6. Verify that cart page is displayed"):
-        cart_page.verify_cart_page_visible()
-        cart_page.verify_product_in_cart(first_name)
-        cart_page.verify_product_in_cart(second_name)
+        verifications.assert_cart_page_visible(cart_page)
+        verifications.assert_product_in_cart(cart_page, first_name)
+        verifications.assert_product_in_cart(cart_page, second_name)
 
     with step(page, f"7. Click 'X' button corresponding to particular product '{first_name}'"):
         cart_page.remove_product(first_name)
 
     with step(page, f"8. Verify that product '{first_name}' is removed from the cart"):
-        cart_page.verify_product_not_in_cart(first_name)
-        cart_page.verify_product_in_cart(second_name)
+        verifications.assert_product_not_in_cart(cart_page, first_name)
+        verifications.assert_product_in_cart(cart_page, second_name)
 
 
 @allure.feature("Cart")
@@ -161,18 +162,18 @@ def test_search_products_and_verify_cart_after_login(home_page: HomePage, regist
         products_page = home_page.click_products()
 
     with step(page, "4. Verify user is navigated to ALL PRODUCTS page successfully"):
-        products_page.verify_all_products_page_visible()
+        verifications.assert_all_products_page_visible(products_page)
 
     with step(page, f"5. Enter product name '{search_term}' in search input and click search button"):
         products_page.search_product(search_term)
 
     with step(page, "6. Verify 'SEARCHED PRODUCTS' is visible"):
-        products_page.verify_searched_products_visible(search_term)
+        verifications.assert_searched_products_visible(products_page, search_term)
 
     with step(page, "7. Verify all the products related to search are visible"):
-        products_page.verify_search_results_visible()
+        verifications.assert_search_results_visible(products_page)
 
-    searched_name = products_page.products_list.nth(0).locator(".productinfo p").inner_text()
+    searched_name = products_page.get_product_name(0)
 
     with step(page, f"8. Add those products '{searched_name}' to cart"):
         products_page.add_product_to_cart_by_index(0)
@@ -180,20 +181,20 @@ def test_search_products_and_verify_cart_after_login(home_page: HomePage, regist
 
     with step(page, "9. Click 'Cart' button and verify that products are visible in cart"):
         cart_page = home_page.click_cart()
-        cart_page.verify_cart_page_visible()
-        cart_page.verify_product_in_cart(searched_name)
+        verifications.assert_cart_page_visible(cart_page)
+        verifications.assert_product_in_cart(cart_page, searched_name)
 
     with step(page, f"10. Click 'Signup / Login' button and submit login details for '{registered_user['email']}'"):
         signup_login_page = home_page.click_signup_login()
         home_page_after_login = signup_login_page.login(registered_user["email"], registered_user["password"])
-        home_page_after_login.verify_logged_in_as(registered_user["name"])
+        verifications.assert_logged_in_as(home_page_after_login, registered_user["name"])
 
     with step(page, "11. Again, go to Cart page"):
         cart_page = home_page_after_login.click_cart()
-        cart_page.verify_cart_page_visible()
+        verifications.assert_cart_page_visible(cart_page)
 
     with step(page, f"12. Verify that those products '{searched_name}' are visible in cart after login as well"):
-        cart_page.verify_product_in_cart(searched_name)
+        verifications.assert_product_in_cart(cart_page, searched_name)
 
     # Clean up: this test logs in, so leave the app in a logged-in state
     # consistent with the registered_user fixture's teardown expectations.
@@ -210,9 +211,9 @@ def test_add_to_cart_from_recommended_items(home_page: HomePage):
         home_page.scroll_to_bottom()
 
     with step(page, "4. Verify 'RECOMMENDED ITEMS' are visible"):
-        home_page.verify_recommended_items_visible()
+        verifications.assert_recommended_items_visible(home_page)
 
-    recommended_name = home_page.recommended_items.nth(0).locator("p").inner_text()
+    recommended_name = home_page.get_recommended_product_name(0)
 
     with step(page, f"5. Click on 'Add To Cart' on Recommended product '{recommended_name}'"):
         home_page.add_recommended_product_to_cart(0)
@@ -221,5 +222,5 @@ def test_add_to_cart_from_recommended_items(home_page: HomePage):
         cart_page = home_page.click_view_cart_from_modal()
 
     with step(page, f"7. Verify that product '{recommended_name}' is displayed in cart page"):
-        cart_page.verify_cart_page_visible()
-        cart_page.verify_product_in_cart(recommended_name)
+        verifications.assert_cart_page_visible(cart_page)
+        verifications.assert_product_in_cart(cart_page, recommended_name)

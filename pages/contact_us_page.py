@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from pages import registry
 from pages.base_page import BasePage
 
 if TYPE_CHECKING:
@@ -21,8 +23,8 @@ class ContactUsPage(BasePage):
     `submit()`.
     """
 
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, page: Page, base_url: str):
+        super().__init__(page, base_url)
         self.get_in_touch_heading = page.locator("h2", has_text="Get In Touch")
         self.name_input = page.locator("input[data-qa='name']")
         self.email_input = page.locator("input[data-qa='email']")
@@ -37,16 +39,14 @@ class ContactUsPage(BasePage):
         self.home_button = page.locator("a[href='/']:has(i.fa-home)")
 
     def goto(self):
-        self.page.goto(f"{self.URL}/contact_us")
-
-    def verify_get_in_touch_visible(self):
-        expect(self.get_in_touch_heading).to_be_visible()
-        # The page's own submit-handling JS can still be wiring itself up
-        # right after navigation; without this, a fast fill+submit can race
-        # it and the click silently does nothing (no request is ever sent).
-        self.page.wait_for_load_state("networkidle")
+        self.page.goto(f"{self.base_url}/contact_us")
 
     def fill_contact_form(self, name: str, email: str, subject: str, message: str):
+        # The page's own submit-handling JS can still be wiring itself up
+        # right after navigation; without waiting for the network to go
+        # quiet first, a fast fill+submit can race it and the click
+        # silently does nothing (no request is ever sent).
+        self.page.wait_for_load_state("networkidle")
         self.name_input.fill(name)
         self.email_input.fill(email)
         self.subject_input.fill(subject)
@@ -61,25 +61,18 @@ class ContactUsPage(BasePage):
         self.page.once("dialog", lambda dialog: dialog.accept())
         self.submit_button.click()
 
-    def verify_success_message_visible(self):
         # The submit occasionally races with the page's ad/analytics scripts
-        # and the AJAX response is a touch slow to land, so allow a generous
-        # timeout (same pattern as other slow-AJAX flows in this codebase)
-        # and retry the submit once if the message never shows up.
+        # and the AJAX response is a touch slow to land, so wait generously
+        # for the success message and retry the submit once if it never
+        # shows up. A synchronization wait (Locator.wait_for), not a test
+        # assertion -- the caller makes the actual content assertion.
         try:
-            expect(self.success_message).to_be_visible(timeout=15000)
-        except AssertionError:
+            self.success_message.wait_for(state="visible", timeout=15000)
+        except PlaywrightTimeoutError:
             self.page.once("dialog", lambda dialog: dialog.accept())
             self.submit_button.click()
-            expect(self.success_message).to_be_visible(timeout=15000)
-
-        expect(self.success_message).to_contain_text(
-            "Success! Your details have been submitted successfully."
-        )
+            self.success_message.wait_for(state="visible", timeout=15000)
 
     def click_home(self) -> "HomePage":
         self.home_button.click()
-
-        from pages.home_page import HomePage
-
-        return HomePage(self.page)
+        return registry.home_page(self.page, self.base_url)

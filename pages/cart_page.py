@@ -3,8 +3,10 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from pages import registry
 from pages.base_page import BasePage
 
 if TYPE_CHECKING:
@@ -21,8 +23,8 @@ class CartPage(BasePage):
     against the live `#cart_info_table` markup).
     """
 
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, page: Page, base_url: str):
+        super().__init__(page, base_url)
         self.cart_rows = page.locator("#cart_info_table tbody tr")
         self.subscribe_heading = page.locator(".single-widget h2", has_text="Subscription")
         self.subscribe_email_input = page.locator("#susbscribe_email")
@@ -35,38 +37,28 @@ class CartPage(BasePage):
         self.checkout_modal_register_login_link = page.locator("#checkoutModal a[href='/login']")
 
     def goto(self):
-        self.page.goto(f"{self.URL}/view_cart")
+        self.page.goto(f"{self.base_url}/view_cart")
 
-    def verify_cart_page_visible(self):
-        expect(self.page).to_have_url(re.compile(r"/view_cart"))
-
-    def _row_by_product_name(self, product_name: str):
+    def product_row(self, product_name: str):
+        """Locator for the cart row matching `product_name` (empty/no-match if absent)."""
         return self.cart_rows.filter(has=self.page.locator(".cart_description", has_text=product_name))
 
-    def verify_product_in_cart(self, product_name: str):
-        row = self.page.locator("#cart_info_table .cart_description", has_text=product_name)
-        expect(row).to_be_visible()
+    def product_quantity(self, product_name: str):
+        return self.product_row(product_name).locator(".cart_quantity button")
 
     def get_product_price(self, product_name: str) -> str:
-        row = self._row_by_product_name(product_name)
-        return row.locator(".cart_price p").inner_text()
+        return self.product_row(product_name).locator(".cart_price p").inner_text()
 
     def get_product_total(self, product_name: str) -> str:
-        row = self._row_by_product_name(product_name)
-        return row.locator(".cart_total .cart_total_price").inner_text()
-
-    def verify_product_quantity(self, product_name: str, expected_quantity: str):
-        row = self._row_by_product_name(product_name)
-        expect(row.locator(".cart_quantity button")).to_have_text(expected_quantity)
+        return self.product_row(product_name).locator(".cart_total .cart_total_price").inner_text()
 
     def remove_product(self, product_name: str):
-        row = self._row_by_product_name(product_name)
+        row = self.product_row(product_name)
         row.locator(".cart_quantity_delete").click()
-        expect(row).not_to_be_visible()
-
-    def verify_product_not_in_cart(self, product_name: str):
-        row = self.page.locator("#cart_info_table .cart_description", has_text=product_name)
-        expect(row).to_have_count(0)
+        try:
+            row.wait_for(state="hidden", timeout=5000)
+        except PlaywrightTimeoutError:
+            pass  # the caller's own assertion will surface the failure with a clear message
 
     def click_proceed_to_checkout(self) -> "CheckoutPage":
         """Clicks 'Proceed To Checkout'.
@@ -80,45 +72,33 @@ class CartPage(BasePage):
         The click occasionally lands without triggering the navigation (same
         live-site flakiness as the products sidebar accordion), so retry
         once before giving up if neither the /checkout navigation nor the
-        modal shows up.
+        modal shows up. These are synchronization waits (Page.wait_for_url /
+        Locator.wait_for), not test assertions.
         """
         self.proceed_to_checkout_button.click()
         checkout_url = re.compile(r"/checkout$")
         modal = self.checkout_modal_register_login_link
         try:
-            expect(self.page).to_have_url(checkout_url, timeout=5000)
-        except AssertionError:
+            self.page.wait_for_url(checkout_url, timeout=5000)
+        except PlaywrightTimeoutError:
             try:
-                expect(modal).to_be_visible(timeout=1000)
-            except AssertionError:
+                modal.wait_for(state="visible", timeout=1000)
+            except PlaywrightTimeoutError:
                 self.proceed_to_checkout_button.click()
                 try:
-                    expect(self.page).to_have_url(checkout_url, timeout=5000)
-                except AssertionError:
-                    expect(modal).to_be_visible(timeout=5000)
+                    self.page.wait_for_url(checkout_url, timeout=5000)
+                except PlaywrightTimeoutError:
+                    modal.wait_for(state="visible", timeout=5000)
 
-        from pages.checkout_page import CheckoutPage
-
-        return CheckoutPage(self.page)
+        return registry.checkout_page(self.page, self.base_url)
 
     def click_register_login_from_checkout_modal(self) -> "SignupLoginPage":
         self.checkout_modal_register_login_link.click()
-
-        from pages.signup_login_page import SignupLoginPage
-
-        return SignupLoginPage(self.page)
+        return registry.signup_login_page(self.page, self.base_url)
 
     def scroll_to_subscription(self):
         self.subscribe_heading.scroll_into_view_if_needed()
 
-    def verify_subscription_heading_visible(self):
-        expect(self.subscribe_heading).to_be_visible()
-        expect(self.subscribe_heading).to_have_text("Subscription")
-
     def subscribe(self, email: str):
         self.subscribe_email_input.fill(email)
         self.subscribe_button.click()
-
-    def verify_subscription_success(self):
-        expect(self.subscribe_success_message).to_be_visible()
-        expect(self.subscribe_success_message).to_contain_text("You have been successfully subscribed!")
